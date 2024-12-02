@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35122.118
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TABG_HACKS_V3", "TABG_HACKS_V3\TABG_HACKS_V3.vcxproj", "{78DB83F3-E5F9-4534-9E73-2F76AF32A242}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{78DB83F3-E5F9-4534-9E73-2F76AF32A242}.Debug|x64.ActiveCfg = Debug|x64
+		{78DB83F3-E5F9-4534-9E73-2F76AF32A242}.Debug|x64.Build.0 = Debug|x64
+		{78DB83F3-E5F9-4534-9E73-2F76AF32A242}.Release|x64.ActiveCfg = Release|x64
+		{78DB83F3-E5F9-4534-9E73-2F76AF32A242}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {41A84185-9622-45F7-BA59-EF9CD803A7C6}
+	EndGlobalSection
+EndGlobal

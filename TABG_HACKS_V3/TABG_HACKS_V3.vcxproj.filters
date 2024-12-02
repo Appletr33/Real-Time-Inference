@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="preprocess.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HUD.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="ScreenCapture.cpp" />
+    <ClCompile Include="YOLOv11.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="cuda_utils.h" />
+    <ClInclude Include="HUD.h" />
+    <ClInclude Include="logging.h" />
+    <ClInclude Include="macros.h" />
+    <ClInclude Include="preprocess.h" />
+    <ClInclude Include="ScreenCapture.h" />
+    <ClInclude Include="YOLOv11.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\text.fs">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\text.vs">
+      <Filter>shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{e0df6547-cb41-4f11-9442-5ff617e68e31}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
