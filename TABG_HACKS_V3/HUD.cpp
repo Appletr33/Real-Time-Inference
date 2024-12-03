@@ -103,27 +103,66 @@ HUD::~HUD()
         rectangle(image, Point(box.x, box.y), Point(box.x + box.width, box.y + box.height), color, 3);
 */
 
-void HUD::render(const std::vector<Detection> &detections, unsigned int fps, bool aim_active)
+// Function to convert screen coordinates to OpenGL NDC
+float ToNDC_X(float screen_x, float screen_width) {
+    return (2.0f * screen_x) / screen_width - 1.0f;
+}
+
+float ToNDC_Y(float screen_y, float screen_height) {
+    return 1.0f - (2.0f * screen_y) / screen_height;
+}
+
+
+void HUD::render(const std::vector<Detection> &detections, unsigned int fps, bool aim_active, float min_conf)
 {
     // Clear with transparency (alpha 0)
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    // Set line width for drawing boxes
+    glLineWidth(2.0f); // Adjust as needed for visibility
 
-    // RENDER //
-    glPointSize(100.0f); // Adjust size as needed
-    glBegin(GL_POINTS);
-    glColor4f(0.0f, 1.0f, 0.0f, 0.8f); // Semi-transparent red
+    // Start rendering detections
+    glColor4f(0.0f, 1.0f, 0.0f, 0.8f); // Semi-transparent green
 
-    for (const auto &detection : detections)
-    {
-        std::cout << detection.bbox.x << "," << detection.bbox.y << "   ";
+    // Calculate the origin (top-left corner) of the 640x640 image in screen space
+    float origin_x = (window_width / 2.0f) - 320.0f;
+    float origin_y = (window_height / 2.0f) - 320.0f;
+
+    glUseProgram(0);
+
+    for (const auto& detection : detections) {
+        if (detection.conf < min_conf)
+            continue;
+
+
+        //// Print detection info for debugging
+        //std::cout << "Detection: x=" << detection.bbox.x
+        //    << ", y=" << detection.bbox.y
+        //    << ", width=" << detection.bbox.width
+        //    << ", height=" << detection.bbox.height
+        //    << std::endl;
+
+        // Convert detection coordinates to screen space
+        float screen_x_min = origin_x + detection.bbox.x;
+        float screen_y_min = origin_y + detection.bbox.y;
+        float screen_x_max = screen_x_min + detection.bbox.width;
+        float screen_y_max = screen_y_min + detection.bbox.height;
+
+        // Normalize screen coordinates to OpenGL NDC
+        float norm_x_min = ToNDC_X(screen_x_min, window_width);
+        float norm_y_min = ToNDC_Y(screen_y_min, window_height);
+        float norm_x_max = ToNDC_X(screen_x_max, window_width);
+        float norm_y_max = ToNDC_Y(screen_y_max, window_height);
+
+        // Draw the bounding box
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(norm_x_min, norm_y_min); // Bottom-left
+        glVertex2f(norm_x_max, norm_y_min); // Bottom-right
+        glVertex2f(norm_x_max, norm_y_max); // Top-right
+        glVertex2f(norm_x_min, norm_y_max); // Top-left
+        glEnd();
     }
-
-    glVertex2f(-0.5f, -0.5f);
-    glVertex2f(0.5f, -0.5f);
-    glVertex2f(0.0f, 0.5f);
-    glEnd();
 
     if (aim_active)
         text_renderer->RenderText("Aim ON", window_width - 500, window_height - 200, 1, {0, 255, 0});

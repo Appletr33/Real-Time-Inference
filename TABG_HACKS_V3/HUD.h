@@ -11,7 +11,7 @@ public:
 	HUD();
 	~HUD();
 
-	void render(const std::vector<Detection> &detections, unsigned int fps, bool aim_active);
+	void render(const std::vector<Detection> &detections, unsigned int fps, bool aim_active, float min_conf);
 private:
 	TextRenderer* text_renderer;
 

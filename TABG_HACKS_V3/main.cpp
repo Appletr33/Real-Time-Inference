@@ -16,6 +16,8 @@ bool aim_active = false;
 using Clock = std::chrono::high_resolution_clock;
 using TimePoint = std::chrono::time_point<Clock>;
 
+constexpr float MIN_CONF = 0.6f;
+
 /**
  * @brief Setting up Tensorrt logger
 */
@@ -105,18 +107,19 @@ int main(int argc, char* argv[])
 
         // Map the resource and get the device pointer
         size_t size = 0;
-        uint8_t* devPtr = screen_capture.MapResource(&size, *yolov11.get_stream());
-        if (devPtr != nullptr) {
-            yolov11.preprocess(devPtr);
+        cudaArray* cudaArray = nullptr;
+        cudaArray = screen_capture.MapResource(&size, *yolov11.get_stream());
+        if (cudaArray != nullptr) {
+            yolov11.preprocess(cudaArray);
 
             // Unmap the resource after preprocessing
             screen_capture.UnmapResource(*yolov11.get_stream());
         }
 
-        //yolov11.infer();
-        //yolov11.postprocess(detections);
+        yolov11.infer();
+        yolov11.postprocess(detections);
 
-        hud.render(detections, fps, aim_active);
+        hud.render(detections, fps, aim_active, MIN_CONF);
         detections.clear();
         frameCount++;
 

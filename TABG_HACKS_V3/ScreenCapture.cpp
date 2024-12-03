@@ -3,7 +3,7 @@
 #include "ScreenCapture.h"
 #include <iostream>
 
-ScreenCapture::ScreenCapture() : cudaResource(nullptr), isCudaRegistered(false)
+ScreenCapture::ScreenCapture() : cudaResource(nullptr), isCudaRegistered(false), capturedTexture(nullptr)
 {
     // Create the device and context
     HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
@@ -99,7 +99,7 @@ HRESULT ScreenCapture::CaptureScreenRegion()
     sourceRegion.bottom = screenRect.bottom;
     sourceRegion.back = 1;
 
-    g_context->CopySubresourceRegion(capturedTexture.Get(), 0, 0, 0, 0, desktopImage.Get(), 0, &sourceRegion);
+    g_context->CopySubresourceRegion(capturedTexture, 0, 0, 0, 0, desktopImage.Get(), 0, &sourceRegion);
 
     // Insert the event query
     g_context->End(g_query.Get());
@@ -110,7 +110,8 @@ HRESULT ScreenCapture::CaptureScreenRegion()
     return S_OK;
 }
 
-uint8_t* ScreenCapture::MapResource(size_t* size, cudaStream_t stream) {
+cudaArray* ScreenCapture::MapResource(size_t* size, cudaStream_t stream) {
+
     if (!isCudaRegistered || !cudaResource) {
         std::cerr << "CUDA resource is not registered or invalid." << std::endl;
         return nullptr;
@@ -129,17 +130,16 @@ uint8_t* ScreenCapture::MapResource(size_t* size, cudaStream_t stream) {
         return nullptr;
     }
 
-    // Get device pointer
-    uint8_t* devPtr = nullptr;
-    cudaStatus = cudaGraphicsResourceGetMappedPointer((void**)&devPtr, size, cudaResource);
+    // Get a pointer to the mapped resource
+    cudaArray* cudaArray = nullptr;
+    cudaStatus = cudaGraphicsSubResourceGetMappedArray(&cudaArray, cudaResource, 0, 0);
     if (cudaStatus != cudaSuccess) {
-        std::cerr << "Failed to get mapped pointer. Error: " << cudaGetErrorString(cudaStatus) << std::endl;
-        // Unmap resources before returning
+        // Handle error
         cudaGraphicsUnmapResources(1, &cudaResource, stream);
         return nullptr;
     }
 
-    return devPtr;
+    return cudaArray;
 }
 
 
@@ -251,10 +251,8 @@ void ScreenCapture::InitializeDuplication()
     regionDesc.Width = 640;
     regionDesc.Height = 640;
     regionDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // Ensure compatible format
-    regionDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-    regionDesc.MiscFlags = 0;
+    regionDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     regionDesc.Usage = D3D11_USAGE_DEFAULT;
-    regionDesc.CPUAccessFlags = 0;
     regionDesc.ArraySize = 1;
     regionDesc.MipLevels = 1;
     regionDesc.SampleDesc.Count = 1;
@@ -265,7 +263,7 @@ void ScreenCapture::InitializeDuplication()
         // Handle error appropriately
     }
 
-    cudaStatus = cudaGraphicsD3D11RegisterResource(&cudaResource, capturedTexture.Get(), cudaGraphicsRegisterFlagsNone);
+    cudaStatus = cudaGraphicsD3D11RegisterResource(&cudaResource, capturedTexture, cudaGraphicsRegisterFlagsNone);
     if (cudaStatus != cudaSuccess) {
         std::cerr << "Failed to register texture with CUDA. Error: " << cudaGetErrorString(cudaStatus) << std::endl;
         return;

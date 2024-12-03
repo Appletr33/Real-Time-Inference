@@ -65,9 +65,8 @@ public:
      *
      * @param image The input image to be preprocessed.
      */
-    void preprocess(Mat& image);
 
-    void YOLOv11::preprocess(uint8_t* devPtr);
+    void YOLOv11::preprocess(cudaArray* cudaArray);
 
     /**
      * @brief Run inference on the preprocessed image.

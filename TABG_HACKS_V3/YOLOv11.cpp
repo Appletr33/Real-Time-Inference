@@ -1,12 +1,14 @@
-#include "YOLOv11.h"             // Header file for YOLOv11 class
-#include "logging.h"             // Logging utilities
-#include "cuda_utils.h"          // CUDA utility functions
-#include "macros.h"              // Common macros
-#include "preprocess.h"          // Preprocessing functions
-#include <NvOnnxParser.h>        // NVIDIA ONNX parser for TensorRT
-#include "common.h"              // Common definitions and utilities
-#include <fstream>               // File stream operations
-#include <iostream>              // Input/output stream operations
+// YOLOv11.cpp
+
+#include "YOLOv11.h"
+#include "logging.h"
+#include "cuda_utils.h"
+#include "macros.h"
+#include "preprocess.h"
+#include <NvOnnxParser.h>
+#include "common.h"
+#include <fstream>
+#include <iostream>
 #include <cuda_runtime.h>
 
 // Initialize a static logger instance
@@ -47,49 +49,12 @@ YOLOv11::YOLOv11(string model_path, nvinfer1::ILogger& logger)
     input_h = input_dims.d[2];
     input_w = input_dims.d[3];
 #endif
-}
 
-// Initialize the engine from a serialized engine file
-void YOLOv11::init(std::string engine_path, nvinfer1::ILogger& logger)
-{
-    // Open the engine file in binary mode
-    ifstream engineStream(engine_path, ios::binary);
-    // Move to the end to determine file size
-    engineStream.seekg(0, ios::end);
-    const size_t modelSize = engineStream.tellg();
-    // Move back to the beginning of the file
-    engineStream.seekg(0, ios::beg);
-    // Allocate memory to read the engine data
-    unique_ptr<char[]> engineData(new char[modelSize]);
-    // Read the engine data into memory
-    engineStream.read(engineData.get(), modelSize);
-    engineStream.close();
-
-    // Create a TensorRT runtime instance
-    runtime = createInferRuntime(logger);
-    // Deserialize the CUDA engine from the engine data
-    engine = runtime->deserializeCudaEngine(engineData.get(), modelSize);
-    // Create an execution context for the engine
-    context = engine->createExecutionContext();
-
-    // Retrieve input dimensions from the 
-    input_h = engine->getBindingDimensions(0).d[2];
-    input_w = engine->getBindingDimensions(0).d[3];
-    // Retrieve detection attributes and number of detections
-    detection_attribute_size = engine->getBindingDimensions(1).d[1];
-    num_detections = engine->getBindingDimensions(1).d[2];
-    // Calculate the number of classes based on detection attributes
-    num_classes = detection_attribute_size - 4;
-
-    // Allocate CPU memory for output buffer
-    cpu_output_buffer = new float[detection_attribute_size * num_detections];
-    // Allocate GPU memory for input buffer (assuming 3 channels: RGB)
+    // Allocate GPU memory for input buffer (RGB, float)
     CUDA_CHECK(cudaMalloc(&gpu_buffers[0], 3 * input_w * input_h * sizeof(float)));
+
     // Allocate GPU memory for output buffer
     CUDA_CHECK(cudaMalloc(&gpu_buffers[1], detection_attribute_size * num_detections * sizeof(float)));
-
-    // Initialize CUDA preprocessing with maximum image size
-    cuda_preprocess_init(MAX_IMAGE_SIZE);
 
     // Create a CUDA stream for asynchronous operations
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -103,38 +68,79 @@ void YOLOv11::init(std::string engine_path, nvinfer1::ILogger& logger)
     }
 }
 
+
 // Destructor for the YOLOv11 class
 YOLOv11::~YOLOv11()
 {
     // Synchronize and destroy the CUDA stream
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
+
     // Free allocated GPU buffers
     for (int i = 0; i < 2; i++)
         CUDA_CHECK(cudaFree(gpu_buffers[i]));
-    // Free CPU output buffer
-    delete[] cpu_output_buffer;
 
-    // Destroy CUDA preprocessing resources
-    cuda_preprocess_destroy();
+
     // Delete TensorRT context, engine, and runtime
     delete context;
     delete engine;
     delete runtime;
 }
 
-void YOLOv11::preprocess(uint8_t* devPtr)
+// Preprocess the input image from cudaArray and transfer it to the GPU buffer
+void YOLOv11::preprocess(cudaArray* cudaArray)
 {
-    // Perform preprocessing directly on devPtr
-    cuda_preprocess_from_device(
-        devPtr,              // Source image on device
-        640,                 // Source width
-        640,                 // Source height
-        gpu_buffers[0],      // Destination buffer on device for YOLO input
-        input_w,             // YOLO input width
-        input_h,             // YOLO input height
-        stream               // CUDA stream
-    );
+    // Define texture object parameters
+    cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypeArray;
+    resDesc.res.array.array = cudaArray;
+
+    // Define texture description
+    cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0] = cudaAddressModeClamp;      // Clamp texture coordinates
+    texDesc.addressMode[1] = cudaAddressModeClamp;
+    texDesc.filterMode = cudaFilterModePoint;           // Point sampling
+    texDesc.readMode = cudaReadModeElementType;         // Read raw data (no normalization)
+    texDesc.normalizedCoords = false;                   // Use unnormalized coordinates
+
+    // Create texture object
+    cudaTextureObject_t texObj = 0;
+    cudaError_t err = cudaCreateTextureObject(&texObj, &resDesc, &texDesc, nullptr);
+    if (err != cudaSuccess) {
+        std::cerr << "Failed to create texture object: " << cudaGetErrorString(err) << std::endl;
+        return;
+    }
+
+    // Define block and grid dimensions
+    dim3 block(16, 16); // 16x16 threads per block
+    dim3 grid((input_w + block.x - 1) / block.x, (input_h + block.y - 1) / block.y); // Cover entire image
+
+    // Launch the conversion kernel
+    launch_bgra_to_rgb_kernel(texObj, gpu_buffers[0], input_w, input_h, stream);
+
+    // Check for kernel launch errors
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << std::endl;
+        cudaDestroyTextureObject(texObj);
+        return;
+    }
+
+    // Synchronize to ensure kernel execution is complete
+    err = cudaStreamSynchronize(stream);
+    if (err != cudaSuccess) {
+        std::cerr << "Stream synchronization failed: " << cudaGetErrorString(err) << std::endl;
+        cudaDestroyTextureObject(texObj);
+        return;
+    }
+
+    // Destroy the texture object
+    err = cudaDestroyTextureObject(texObj);
+    if (err != cudaSuccess) {
+        std::cerr << "Failed to destroy texture object: " << cudaGetErrorString(err) << std::endl;
+    }
 }
 
 // Perform inference using the TensorRT execution context
@@ -250,6 +256,57 @@ void YOLOv11::build(std::string onnxPath, nvinfer1::ILogger& logger)
     delete plan;
 }
 
+// Initialize the engine from a serialized engine file
+void YOLOv11::init(std::string engine_path, nvinfer1::ILogger& logger)
+{
+    // Open the engine file in binary mode
+    ifstream engineStream(engine_path, ios::binary);
+    // Move to the end to determine file size
+    engineStream.seekg(0, ios::end);
+    const size_t modelSize = engineStream.tellg();
+    // Move back to the beginning of the file
+    engineStream.seekg(0, ios::beg);
+    // Allocate memory to read the engine data
+    unique_ptr<char[]> engineData(new char[modelSize]);
+    // Read the engine data into memory
+    engineStream.read(engineData.get(), modelSize);
+    engineStream.close();
+
+    // Create a TensorRT runtime instance
+    runtime = createInferRuntime(logger);
+    // Deserialize the CUDA engine from the engine data
+    engine = runtime->deserializeCudaEngine(engineData.get(), modelSize);
+    // Create an execution context for the engine
+    context = engine->createExecutionContext();
+
+    // Retrieve input dimensions from the 
+    input_h = engine->getBindingDimensions(0).d[2];
+    input_w = engine->getBindingDimensions(0).d[3];
+    // Retrieve detection attributes and number of detections
+    detection_attribute_size = engine->getBindingDimensions(1).d[1];
+    num_detections = engine->getBindingDimensions(1).d[2];
+    // Calculate the number of classes based on detection attributes
+    num_classes = detection_attribute_size - 4;
+
+    // Allocate CPU memory for output buffer
+    cpu_output_buffer = new float[detection_attribute_size * num_detections];
+    // Allocate GPU memory for input buffer (assuming 3 channels: RGB)
+    CUDA_CHECK(cudaMalloc(&gpu_buffers[0], 3 * input_w * input_h * sizeof(float)));
+    // Allocate GPU memory for output buffer
+    CUDA_CHECK(cudaMalloc(&gpu_buffers[1], detection_attribute_size * num_detections * sizeof(float)));
+
+    // Create a CUDA stream for asynchronous operations
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    // Perform model warmup if enabled
+    if (warmup) {
+        for (int i = 0; i < 10; i++) {
+            this->infer(); // Run inference to warm up the model
+        }
+        printf("model warmup 10 times\n");
+    }
+}
+
 // Save the serialized TensorRT engine to a file
 bool YOLOv11::saveEngine(const std::string& onnxpath)
 {
@@ -340,3 +397,4 @@ cudaStream_t* YOLOv11::get_stream()
 {
     return &stream;
 }
+

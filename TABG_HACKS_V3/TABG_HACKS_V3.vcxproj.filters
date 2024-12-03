@@ -8,6 +8,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ScreenCapture.cpp" />
     <ClCompile Include="YOLOv11.cpp" />
+    <ClCompile Include="TextRenderer.cpp" />
+    <ClCompile Include="Aim.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />
@@ -18,6 +20,8 @@
     <ClInclude Include="preprocess.h" />
     <ClInclude Include="ScreenCapture.h" />
     <ClInclude Include="YOLOv11.h" />
+    <ClInclude Include="TextRenderer.h" />
+    <ClInclude Include="Aim.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\text.fs">

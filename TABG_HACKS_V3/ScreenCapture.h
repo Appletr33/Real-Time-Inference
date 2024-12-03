@@ -13,10 +13,10 @@ public:
     ~ScreenCapture();
     HRESULT CaptureScreenRegion();
     void InitializeDuplication(); // To reinitialize duplication if needed
-    cudaGraphicsResource_t cudaResource;     // CUDA graphics resource
-    ComPtr<ID3D11Texture2D> capturedTexture; // Persistent texture
+    cudaGraphicsResource* cudaResource;     // CUDA graphics resource
+    ID3D11Texture2D* capturedTexture; // Persistent texture
     // New functions to handle resource mapping and unmapping
-    uint8_t* MapResource(size_t* size, cudaStream_t stream);
+    cudaArray* MapResource(size_t* size, cudaStream_t stream);
     void UnmapResource(cudaStream_t stream);
 
 
