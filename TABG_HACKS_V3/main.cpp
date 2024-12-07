@@ -4,14 +4,20 @@
 #include <cuda_runtime.h>
 #include <cuda_d3d11_interop.h>
 #include <chrono>
+#include <thread>
+#include <atomic>
+#include <mutex>
+
 #include "yolov11.h"
 #include "HUD.h"
+#include "Aim.h"
 #include "ScreenCapture.h"
 
 
 HHOOK keycallback_hook = nullptr;
-bool should_terminate = false;
-bool aim_active = false;
+// Atomic flags for thread-safe access
+std::atomic<bool> should_terminate(false);
+std::atomic<bool> aim_active(false);
 // High-resolution timer aliases for convenience
 using Clock = std::chrono::high_resolution_clock;
 using TimePoint = std::chrono::time_point<Clock>;
@@ -49,13 +55,27 @@ static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
-static void SetGlobalKeyboardHook()
+void KeyboardInputThread()
 {
-    keycallback_hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, GetModuleHandle(NULL), 0);
-    if (!keycallback_hook)
+    HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, GetModuleHandle(NULL), 0);
+    if (!hook)
     {
         throw std::runtime_error("Failed to set keyboard hook");
     }
+
+    // Process messages in this thread
+    MSG msg;
+    while (!should_terminate.load())
+    {
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Avoid busy-waiting
+    }
+
+    UnhookWindowsHookEx(hook);
 }
 
 int main(int argc, char* argv[]) 
@@ -86,10 +106,10 @@ int main(int argc, char* argv[])
     std::string enginePath = "best_model.engine";
     YOLOv11 yolov11(enginePath, logger);
     auto hud = HUD();
+    auto aim = Aim(hud.get_window_width(), hud.get_window_height());
     auto screen_capture = ScreenCapture();
-    // Set the global keyboard hook
-    SetGlobalKeyboardHook();
-    while (!should_terminate)
+    std::thread inputThread(KeyboardInputThread);
+    while (!should_terminate.load())
     {
         HRESULT hr = screen_capture.CaptureScreenRegion();
         if (FAILED(hr)) {
@@ -118,8 +138,17 @@ int main(int argc, char* argv[])
 
         yolov11.infer();
         yolov11.postprocess(detections);
+        aim.update_targets(detections, aim_active);
 
-        hud.render(detections, fps, aim_active, MIN_CONF);
+        if (GetAsyncKeyState(VK_RBUTTON) & 0x8000) 
+        {
+            hud.render(detections, fps, false, MIN_CONF);
+        }
+        else
+        {
+            hud.render(detections, fps, aim_active.load(), MIN_CONF);
+        }
+        
         detections.clear();
         frameCount++;
 
@@ -132,12 +161,14 @@ int main(int argc, char* argv[])
             startTime = now;  // Reset timer
         }
     }
-    //clean up
-    if (keycallback_hook) 
-        UnhookWindowsHookEx(keycallback_hook);
-
     // Uninitialize COM
     CoUninitialize();
+
+    // Join the input thread before exiting
+    if (inputThread.joinable())
+    {
+        inputThread.join();
+    }
 
     return 0;
 }

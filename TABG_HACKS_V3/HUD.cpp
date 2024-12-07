@@ -11,6 +11,7 @@
 #include <GL/GLU.h>
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+#include <dwmapi.h>
 
 HUD::HUD()
 {
@@ -20,10 +21,12 @@ HUD::HUD()
         throw std::invalid_argument("Could not initialize GLFW");
     }
 
-    // Set GLFW hints for transparency
+    // Set GLFW hints for transparency and window behavior
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); // Remove window borders
     glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE); // Prevent window from being focused on creation
+    glfwWindowHint(GLFW_FLOATING, GLFW_TRUE); // Ensure window stays above others
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // Prevent window resizing
 
 
     // Get primary monitor for fullscreen
@@ -57,7 +60,13 @@ HUD::HUD()
     glDisable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    text_renderer = new TextRenderer("ProtestRevolution-Regular.ttf", mode->width, mode->height);
+    text_renderer = new TextRenderer("Iceland-Regular.ttf", mode->width, mode->height);
+
+    // Enable DWM composition for better window layering
+    HRESULT dwmResult = DwmEnableComposition(DWM_EC_ENABLECOMPOSITION);
+    if (FAILED(dwmResult)) {
+        std::cerr << "Failed to enable DWM composition.\n";
+    }
 }
 
 HUD::~HUD()
@@ -67,41 +76,6 @@ HUD::~HUD()
     glfwDestroyWindow(window);
     glfwTerminate();
 }
-
-/*
-    // Calculate the scaling ratios between input and original image dimensions
-    const float ratio_h = input_h / (float)image.rows;
-    const float ratio_w = input_w / (float)image.cols;
-
-    // Iterate over each detection
-    for (int i = 0; i < output.size(); i++)
-    {
-        auto detection = output[i];
-        auto box = detection.bbox;
-        auto class_id = detection.class_id;
-        auto conf = detection.conf;
-        // Assign a color based on the class ID
-        cv::Scalar color = cv::Scalar(COLORS[class_id][0], COLORS[class_id][1], COLORS[class_id][2]);
-
-        // Adjust bounding box coordinates based on aspect ratio
-        if (ratio_h > ratio_w)
-        {
-            box.x = box.x / ratio_w;
-            box.y = (box.y - (input_h - ratio_w * image.rows) / 2) / ratio_w;
-            box.width = box.width / ratio_w;
-            box.height = box.height / ratio_w;
-        }
-        else
-        {
-            box.x = (box.x - (input_w - ratio_h * image.cols) / 2) / ratio_h;
-            box.y = box.y / ratio_h;
-            box.width = box.width / ratio_h;
-            box.height = box.height / ratio_h;
-        }
-
-        // Draw the bounding box on the image
-        rectangle(image, Point(box.x, box.y), Point(box.x + box.width, box.y + box.height), color, 3);
-*/
 
 // Function to convert screen coordinates to OpenGL NDC
 float ToNDC_X(float screen_x, float screen_width) {
@@ -156,31 +130,47 @@ void HUD::render(const std::vector<Detection> &detections, unsigned int fps, boo
         float norm_y_max = ToNDC_Y(screen_y_max, window_height);
 
         // Draw the bounding box
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(norm_x_min, norm_y_min); // Bottom-left
-        glVertex2f(norm_x_max, norm_y_min); // Bottom-right
-        glVertex2f(norm_x_max, norm_y_max); // Top-right
-        glVertex2f(norm_x_min, norm_y_max); // Top-left
-        glEnd();
+        //glBegin(GL_LINE_LOOP);
+        //glVertex2f(norm_x_min, norm_y_min); // Bottom-left
+        //glVertex2f(norm_x_max, norm_y_min); // Bottom-right
+        //glVertex2f(norm_x_max, norm_y_max); // Top-right
+        //glVertex2f(norm_x_min, norm_y_max); // Top-left
+        //glEnd();
     }
 
-    if (aim_active)
-        text_renderer->RenderText("Aim ON", window_width - 500, window_height - 200, 1, {0, 255, 0});
-    else
-        text_renderer->RenderText("Aim OFF", window_width - 500, window_height - 200, 1, { 255, 0, 0 });
+    //glLineWidth(2.0f); // Adjust as needed for visibility
+    //glColor4f(1.0f, 1.0f, 1.0f, 0.4f); // Semi-transparent green
+    //glBegin(GL_LINE_LOOP);
+    //for (int i = 0; i < 100; ++i) 
+    //{
+    //    float angle = 2.0f * 3.14159f * i / 100; // Calculate angle in radians
+    //    float screen_x = (window_width / 2.0f) + 320.0f * cos(angle); // Circle center at screen center
+    //    float screen_y = (window_height / 2.0f) + 320.0f * sin(angle); // Circle center at screen center
+    //    float ndc_x = ToNDC_X(screen_x, window_width); // Convert screen X to NDC
+    //    float ndc_y = ToNDC_Y(screen_y, window_height); // Convert screen Y to NDC
+    //    glVertex2f(ndc_x, ndc_y); // Specify vertex
+    //}
+    //glEnd();
 
-    std::string fps_text = "Execution Rate:" + std::to_string(fps) + "/s";
-    text_renderer->RenderText(fps_text, window_width - 500, window_height - 300, 1, { 255, 255, 255 });
+
+    if (aim_active)
+        text_renderer->RenderText("Aim ON", window_width - 300, window_height - 100, 1, {0, 255, 0});
+    else
+        text_renderer->RenderText("Aim OFF", window_width - 300, window_height - 100, 1, { 255, 0, 0 });
+
+    std::string fps_text = "IPS:" + std::to_string(fps) + "/s";
+    text_renderer->RenderText(fps_text, window_width - 300, window_height - 150, 1, { 255, 255, 255 });
 
     //// Swap buffers and poll events
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
 
+// Function to make the window click-through and topmost
 void HUD::make_window_clickthrough(GLFWwindow* window)
 {
     HWND hwnd = glfwGetWin32Window(window);
-    if (!hwnd) 
+    if (!hwnd)
     {
         throw std::runtime_error("Could not get HWND from GLFW window");
     }
@@ -188,12 +178,23 @@ void HUD::make_window_clickthrough(GLFWwindow* window)
 
     // Set the window to be layered, transparent, and always on top
     LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_TOOLWINDOW);
 
+    // Set layered window attributes for per-pixel alpha
     SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
 
     // Make the window always on top without activating (SWP_NOACTIVATE)
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+unsigned int HUD::get_window_width()
+{
+    return window_width;
+}
+
+unsigned int HUD::get_window_height()
+{
+    return window_height;
 }
 
 

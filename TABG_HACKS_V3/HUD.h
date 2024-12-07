@@ -12,6 +12,8 @@ public:
 	~HUD();
 
 	void render(const std::vector<Detection> &detections, unsigned int fps, bool aim_active, float min_conf);
+	unsigned int get_window_width();
+	unsigned int get_window_height();
 private:
 	TextRenderer* text_renderer;
 

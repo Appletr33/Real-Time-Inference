@@ -58,14 +58,6 @@ YOLOv11::YOLOv11(string model_path, nvinfer1::ILogger& logger)
 
     // Create a CUDA stream for asynchronous operations
     CUDA_CHECK(cudaStreamCreate(&stream));
-
-    // Perform model warmup if enabled
-    if (warmup) {
-        for (int i = 0; i < 10; i++) {
-            this->infer(); // Run inference to warm up the model
-        }
-        printf("model warmup 10 times\n");
-    }
 }
 
 

@@ -9,9 +9,13 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\libs\opencv\build\x64\vc16\lib;C:\Users\caddy\vcpkg\installed\x64-windows\lib;C:\libs\TensorRT-8.6.1.6.Windows10.x86_64.cuda-12.0\TensorRT-8.6.1.6\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>cudart_static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;nvinfer.lib;nvonnxparser.lib;nvparsers.lib;nvinfer_plugin.lib;glfw3dll.lib;opengl32.lib;d3d11.lib;freetype.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cudart_static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;nvinfer.lib;nvonnxparser.lib;nvparsers.lib;nvinfer_plugin.lib;glfw3dll.lib;opengl32.lib;d3d11.lib;freetype.lib;glew32.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:LIBCMT %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <CudaCompile>
+      <CodeGeneration>compute_60,sm_60;compute_61,sm_61;compute_89,sm_89;%(CodeGeneration)</CodeGeneration>
+      <FastMath>true</FastMath>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
 </Project>
