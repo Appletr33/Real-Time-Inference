@@ -152,6 +152,16 @@ void HUD::render(const std::vector<Detection> &detections, unsigned int fps, boo
     //}
     //glEnd();
 
+    if (!(GetAsyncKeyState(VK_RBUTTON) & 0x8000))
+    {
+        glColor4f(1.0f, 1.0f, 1.0f, 0.4f); // Semi-transparent green
+        glPointSize(6.0f); // Adjust point size for visibility
+        glBegin(GL_POINTS);
+        glVertex2f(0.0f, 0.0f); // Center of the screen in normalized coordinates
+        glEnd();
+    }
+
+
 
     if (aim_active)
         text_renderer->RenderText("Aim ON", window_width - 300, window_height - 100, 1, {0, 255, 0});

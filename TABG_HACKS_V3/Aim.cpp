@@ -4,6 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <thread>
 
 #include "YOLOv11.h"
 
@@ -140,8 +141,8 @@ void Aim::move_mouse_towards(float target_x, float target_y, bool aim_active)
     if (!GetCursorPos(&cursorPos))
         return;
 
-    float currentX = (float)cursorPos.x;
-    float currentY = (float)cursorPos.y;
+    float currentX = static_cast<float>(cursorPos.x);
+    float currentY = static_cast<float>(cursorPos.y);
 
     float d = distance(currentX, currentY, target_x, target_y);
     if (d <= convergence_threshold) {
@@ -152,26 +153,31 @@ void Aim::move_mouse_towards(float target_x, float target_y, bool aim_active)
     float dx = target_x - currentX;
     float dy = target_y - currentY;
 
-    // If we're very close, snap directly (no smoothing), ensuring we stay locked on center
-    // If we're farther, apply some smoothing
+    // Normalize the direction vector
+    float dir_x = dx / d;
+    float dir_y = dy / d;
+
+    float step;
+
     if (d < no_smoothing_threshold) {
-        // If close, just snap directly - ensures stable lock in center
-        // Move fully
+        // When close to the target, reduce the step size proportionally
+        // to avoid overshooting
+        step = std::max(d * mouse_smoothing_factor, min_step);
     }
     else {
-        dx *= mouse_smoothing_factor;
-        dy *= mouse_smoothing_factor;
+        // When far, use the smoothing factor but cap the step size
+        step = std::max(std::min(d * mouse_smoothing_factor, max_step), min_step);
     }
 
+    // Calculate movement deltas
+    float move_x = dir_x * step;
+    float move_y = dir_y * step;
+
     // Convert to int for mouse_event
-    int moveX = (int)dx;
-    int moveY = (int)dy;
+    int moveX = static_cast<int>(std::round(move_x));
+    int moveY = static_cast<int>(std::round(move_y));
 
-    // If moveX or moveY are zero due to rounding but we still have distance,
-    // at least move by 1 pixel to inch closer
-    if (moveX == 0 && std::fabs(dx) > 0.5f) moveX = (dx > 0) ? 1 : -1;
-    if (moveY == 0 && std::fabs(dy) > 0.5f) moveY = (dy > 0) ? 1 : -1;
-
+    // Apply mouse movement
     mouse_event(MOUSEEVENTF_MOVE, moveX, moveY, 0, 0);
 }
 

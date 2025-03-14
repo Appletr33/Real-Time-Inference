@@ -35,10 +35,14 @@ private:
     int lostFramesAllowed = 5; // grace period frames
 
     // Lifetimes and thresholds
-    std::chrono::milliseconds target_lifetime = std::chrono::milliseconds(100);
-    float mouse_smoothing_factor = 0.15f; // fraction of distance to move each frame when far
-    float no_smoothing_threshold = 40.0f; // if closer than this distance to the target, snap directly
-    float convergence_threshold = 1.0f;   // if closer than this to the target, might not need to move
+    std::chrono::milliseconds target_lifetime = std::chrono::milliseconds(200);
+    // Define thresholds and factors
+    const float convergence_threshold = 1.0f;       // Distance within which to stop
+    const float no_smoothing_threshold = 50.0f;     // Distance below which to snap
+    const float mouse_smoothing_factor = 0.7f;      // Base smoothing factor
+    const float max_step = 50.0f;                   // Maximum pixels to move per update
+    const float min_step = 1.0f;                    // Minimum pixels to move to prevent jitter
+
 
     void initialize_mouse_position();
 

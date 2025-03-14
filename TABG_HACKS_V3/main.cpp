@@ -138,15 +138,18 @@ int main(int argc, char* argv[])
 
         yolov11.infer();
         yolov11.postprocess(detections);
-        aim.update_targets(detections, aim_active);
+        
 
         if (GetAsyncKeyState(VK_RBUTTON) & 0x8000) 
         {
             hud.render(detections, fps, false, MIN_CONF);
+            aim.update_targets(detections, false);
+
         }
         else
         {
             hud.render(detections, fps, aim_active.load(), MIN_CONF);
+            aim.update_targets(detections, aim_active.load());
         }
         
         detections.clear();
